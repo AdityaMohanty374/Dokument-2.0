@@ -9,3 +9,4 @@ boto3
 python-multipart
 python-dotenv
 openai
+PyMuPDF
