@@ -193,6 +193,38 @@
       border-left: 1px solid var(--border-soft);
     }
 
+    /* ── Sidebar Toggle (mobile) ── */
+    .sidebar-toggle {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 34px; height: 34px;
+      background: transparent;
+      border: 1px solid var(--border-soft);
+      border-radius: var(--r-md);
+      color: var(--paper-200);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: border-color var(--dur-fast) var(--ease-standard), background var(--dur-fast) var(--ease-standard);
+    }
+
+    .sidebar-toggle:hover { border-color: var(--teal-500); background: rgba(67,191,175,0.06); }
+    .sidebar-toggle svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
+
+    /* ── Sidebar backdrop (mobile) ── */
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(2px);
+      z-index: 90;
+      opacity: 0;
+      transition: opacity var(--dur-med) var(--ease-standard);
+    }
+
+    .sidebar-backdrop.visible { display: block; opacity: 1; }
+
     .model-badge {
       margin-left: auto;
       display: inline-flex;
@@ -887,20 +919,33 @@
     }
 
     @media (max-width: 700px) {
-      header { padding: var(--sp-3) var(--sp-4); flex-wrap: wrap; row-gap: var(--sp-2); }
+      header { padding: var(--sp-3) var(--sp-4); gap: var(--sp-3); }
       header .tagline { display: none; }
-      .layout { flex-direction: column; }
+      .model-badge { display: none; }
+      .sidebar-toggle { display: inline-flex; }
+
+      .layout { position: relative; overflow: hidden; }
+
+      /* Sidebar becomes a full-height off-canvas drawer */
       .sidebar {
-        width: 100%;
-        border-right: none;
-        border-bottom: 1px solid var(--border-hair);
-        flex-shrink: 0;
-        max-height: 40vh;
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        z-index: 100;
+        width: min(84vw, 320px);
+        max-height: none;
+        border-right: 1px solid var(--border-hair);
+        border-bottom: none;
+        box-shadow: var(--shadow-lg);
+        transform: translateX(-100%);
+        transition: transform var(--dur-med) var(--ease-out);
+        animation: none;
       }
-      .chat-pane { min-height: 0; flex: 1; }
+
+      .sidebar.open { transform: translateX(0); }
+
+      .chat-pane { width: 100%; }
       .messages { padding: var(--sp-5); gap: var(--sp-4); }
       .input-area, .status-bar { padding-left: var(--sp-4); padding-right: var(--sp-4); }
-      .model-badge { display: none; }
     }
 
     @media (max-width: 420px) {
@@ -926,6 +971,9 @@
 
   <!-- ── Header ── -->
   <header>
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle conversations and upload panel" aria-expanded="false">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <div class="brand">
       <div class="seal" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke-linecap="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -944,8 +992,11 @@
   <!-- ── Main Layout ── -->
   <div class="layout">
 
+    <!-- ── Sidebar backdrop (mobile) ── -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
     <!-- ── Sidebar ── -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
 
       <div>
         <p class="label">Conversations</p>
@@ -1062,6 +1113,34 @@
     const logoutBtn  = document.getElementById('logoutBtn');
     const newConvoBtn = document.getElementById('newConvoBtn');
     const conversationListEl = document.getElementById('conversationList');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
+    // ── Mobile sidebar drawer ───────────────────────────────────
+    function openSidebar() {
+      sidebar.classList.add('open');
+      sidebarBackdrop.classList.add('visible');
+      sidebarToggle.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeSidebar() {
+      sidebar.classList.remove('open');
+      sidebarBackdrop.classList.remove('visible');
+      sidebarToggle.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleSidebar() {
+      sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+    }
+
+    sidebarToggle.addEventListener('click', toggleSidebar);
+    sidebarBackdrop.addEventListener('click', closeSidebar);
+
+    // Close drawer automatically if viewport grows back to desktop size
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 700) closeSidebar();
+    });
 
     // ── Helpers ───────────────────────────────────────────────
     function api(path) {
@@ -1236,7 +1315,10 @@
         });
         item.appendChild(del);
 
-        item.addEventListener('click', () => selectConversation(c.id));
+        item.addEventListener('click', () => {
+          selectConversation(c.id);
+          if (window.innerWidth <= 700) closeSidebar();
+        });
         conversationListEl.appendChild(item);
       });
     }
@@ -1289,6 +1371,7 @@
 
     newConvoBtn.addEventListener('click', () => {
       createConversation().catch(err => showToast(err.message, true));
+      if (window.innerWidth <= 700) closeSidebar();
     });
 
     // ── Init ─────────────────────────────────────────────────
@@ -1358,6 +1441,7 @@
     // ── Upload & Summarize ─────────────────────────────────────
     uploadBtn.addEventListener('click', async () => {
       if (!selectedFile || !activeConversationId) return;
+      if (window.innerWidth <= 700) closeSidebar();
       uploadBtn.disabled = true;
       uploadBtn.textContent = '… Analyzing';
       const typing = createTyping();
