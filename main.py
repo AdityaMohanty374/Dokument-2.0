@@ -18,14 +18,11 @@ from auth import (
     get_current_user,
 )
 from config import settings
-from database import Base, engine, get_db
-from llm import extract_pdf_text, stream_response, summarize_text, chat
+from database import Base, engine, get_db, SessionLocal
+from llm import extract_pdf_text, stream_response, summarize_text
 from models import User, Conversation, Message, Document
 from schemas import ChatRequest, ConversationCreate, ConversationOut, MessageOut, UserOut
 
-# Creates tables on startup if they don't exist yet.
-# For real schema changes later, switch to Alembic migrations instead of
-# relying on this — it won't alter existing tables.
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Document Summarizer API")
@@ -58,8 +55,6 @@ def google_callback(code: str, state: str, db: Session = Depends(get_db)):
     userinfo = exchange_code_for_userinfo(code)
     user = get_or_create_user(db, userinfo)
     token = create_jwt(user)
-    # Hand the token back via URL fragment so it never hits server logs
-    # and the SPA can pick it up client-side.
     return RedirectResponse(f"{settings.FRONTEND_URL}#token={token}")
 
 
@@ -81,6 +76,11 @@ def _get_owned_conversation(db: Session, user: User, conversation_id: str) -> Co
     if not convo:
         raise HTTPException(status_code=404, detail="Conversation not found.")
     return convo
+
+
+def _messages_payload(convo: Conversation) -> list[dict]:
+    """Convert ORM messages to plain dicts before closing the DB session."""
+    return [{"role": m.role, "content": m.content} for m in convo.messages]
 
 
 @app.get("/conversations", response_model=list[ConversationOut])
@@ -129,7 +129,7 @@ def delete_conversation(
         try:
             storage.delete_pdf(doc.storage_key)
         except Exception:
-            pass  # don't block deletion on a storage hiccup
+            pass
     db.delete(convo)
     db.commit()
     return {"message": "Conversation deleted."}
@@ -139,10 +139,6 @@ def delete_conversation(
 # Chat
 # ──────────────────────────────────────────────────────────
 
-def _messages_payload(convo: Conversation) -> list[dict]:
-    return [{"role": m.role, "content": m.content} for m in convo.messages]
-
-
 @app.post("/chat")
 def chat_endpoint(
     request: ChatRequest,
@@ -151,18 +147,28 @@ def chat_endpoint(
 ):
     convo = _get_owned_conversation(db, user, request.conversation_id)
 
+    # Save user message
     db.add(Message(conversation_id=convo.id, role="user", content=request.message))
     db.commit()
+    db.refresh(convo)
 
+    # Snapshot history as plain dicts NOW, before the session closes
     history = _messages_payload(convo)
+    convo_id = convo.id
 
     def generate():
         answer = ""
         for token in stream_response(history):
             answer += token
             yield token
-        db.add(Message(conversation_id=convo.id, role="assistant", content=answer))
-        db.commit()
+        # Use a brand-new session for the write-back because the request
+        # session is closed by the time the generator finishes streaming.
+        write_db = SessionLocal()
+        try:
+            write_db.add(Message(conversation_id=convo_id, role="assistant", content=answer))
+            write_db.commit()
+        finally:
+            write_db.close()
 
     return StreamingResponse(generate(), media_type="text/plain")
 
@@ -192,12 +198,12 @@ async def upload_pdf(
 
         storage_key = f"{user.id}/{conversation_id}/{uuid.uuid4()}-{file.filename}"
         storage.upload_pdf(temp_path, storage_key)
+
         db.add(Document(
             conversation_id=convo.id,
             filename=file.filename,
             storage_key=storage_key,
         ))
-
         summary_message = summarize_text(text)
         db.add(Message(
             conversation_id=convo.id,
@@ -205,16 +211,23 @@ async def upload_pdf(
             content=summary_message["content"],
         ))
         db.commit()
+        db.refresh(convo)
 
+        # Snapshot before streaming
         history = _messages_payload(convo)
+        convo_id = convo.id
 
         def generate():
             answer = ""
             for token in stream_response(history):
                 answer += token
                 yield token
-            db.add(Message(conversation_id=convo.id, role="assistant", content=answer))
-            db.commit()
+            write_db = SessionLocal()
+            try:
+                write_db.add(Message(conversation_id=convo_id, role="assistant", content=answer))
+                write_db.commit()
+            finally:
+                write_db.close()
 
         return StreamingResponse(generate(), media_type="text/plain")
     finally:
