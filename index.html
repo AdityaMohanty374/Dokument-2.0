@@ -875,7 +875,36 @@
       .message { gap: var(--sp-3); }
       .msg-role { min-width: 40px; font-size: 0.54rem; }
     }
-  </style>
+  
+/* === Mobile Drawer Redesign === */
+.hamburger{display:none;background:none;border:none;color:var(--parchment);font-size:1.4rem;cursor:pointer}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90}
+@media (max-width:768px){
+ header{align-items:center}
+ .hamburger{display:block}
+ .layout{display:block}
+ .sidebar{
+   position:fixed;
+   left:-320px;
+   top:0;
+   width:300px;
+   height:100vh;
+   max-height:none;
+   z-index:100;
+   transition:left .28s ease;
+   border-right:1px solid var(--border);
+   border-bottom:none;
+ }
+ .sidebar.open{left:0}
+ .sidebar-overlay.show{display:block}
+ .chat-pane{width:100%;height:calc(100vh - 72px)}
+ .messages{padding:16px}
+ .input-area{padding:12px}
+ .model-badge{margin-left:auto}
+ .user-badge{display:none!important}
+}
+
+</style>
 </head>
 <body>
 
@@ -891,6 +920,7 @@
 
   <!-- ── Header ── -->
   <header>
+<button class='hamburger' id='menuBtn'>&#9776;</button>
     <h1>Dokument</h1>
     <span class="tagline">PDF Intelligence</span>
     <span class="model-badge"><span class="dot">●</span> Llama 3.1 8B Instant</span>
@@ -901,7 +931,8 @@
     </div>
   </header>
 
-  <!-- ── Main Layout ── -->
+  <div class='sidebar-overlay' id='sidebarOverlay'></div>
+<!-- ── Main Layout ── -->
   <div class="layout">
 
     <!-- ── Sidebar ── -->
@@ -1409,6 +1440,18 @@
       if (!activeConversationId) return;
       deleteConversation(activeConversationId);
     });
-  </script>
+  
+// Mobile drawer
+const menuBtn=document.getElementById('menuBtn');
+const sidebar=document.querySelector('.sidebar');
+const overlay=document.getElementById('sidebarOverlay');
+function closeDrawer(){sidebar.classList.remove('open');overlay.classList.remove('show');}
+if(menuBtn){
+ menuBtn.onclick=()=>{sidebar.classList.add('open');overlay.classList.add('show');};
+ overlay.onclick=closeDrawer;
+ document.querySelectorAll('.conversation-item').forEach(x=>x.onclick=closeDrawer);
+}
+
+</script>
 </body>
 </html>
