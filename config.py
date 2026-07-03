@@ -1,7 +1,10 @@
 import os
 from datetime import timedelta
 
-
+MODEL_1= "qwen3:1.7b"
+MODEL_2= "llama-3.1-8b-instant"
+TEMPERATURE = 0.2
+TOP_P = 0.9
 class Settings:
     # --- Database (Neon Postgres) ---
     # Example: postgresql://user:password@ep-xxxx.us-east-2.aws.neon.tech/dokument?sslmode=require
