@@ -178,8 +178,12 @@
       font-family: var(--font-display);
       font-size: clamp(1.3rem, 1.1rem + 0.6vw, 1.7rem);
       letter-spacing: -0.02em;
-      color: var(--paper-100);
       line-height: 1;
+      background: linear-gradient(115deg, var(--gold-400) 0%, var(--rust-400) 55%, var(--rust-600) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: var(--paper-100);
     }
 
     header .tagline {
@@ -251,9 +255,10 @@
       display: none;
       align-items: center;
       gap: var(--sp-3);
-      margin-left: var(--sp-2);
+      margin-left: auto;
       padding-left: var(--sp-4);
       border-left: 1px solid var(--border-soft);
+      min-width: 0;
     }
 
     .user-badge.visible { display: flex; animation: fadeIn var(--dur-med) var(--ease-out) both; }
@@ -262,12 +267,17 @@
       width: 24px; height: 24px;
       border-radius: 50%;
       border: 1px solid var(--border-mid);
+      flex-shrink: 0;
     }
 
     .user-badge .user-email {
       font-family: var(--font-mono);
       font-size: 0.64rem;
       color: var(--paper-600);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
     }
 
     .user-badge .logout-btn {
@@ -281,6 +291,8 @@
       padding: var(--sp-1) var(--sp-2);
       border-radius: var(--r-sm);
       cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
       transition: border-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), background var(--dur-fast);
     }
 
@@ -312,8 +324,12 @@
     .login-gate h2 {
       font-family: var(--font-display);
       font-size: clamp(2rem, 1.6rem + 1.5vw, 2.6rem);
-      color: var(--paper-100);
       letter-spacing: -0.01em;
+      background: linear-gradient(115deg, var(--gold-400) 0%, var(--rust-400) 55%, var(--rust-600) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: var(--paper-100);
     }
 
     .login-gate p {
@@ -919,10 +935,18 @@
     }
 
     @media (max-width: 700px) {
-      header { padding: var(--sp-3) var(--sp-4); gap: var(--sp-3); }
+      header { padding: var(--sp-3) var(--sp-4); gap: var(--sp-3); flex-wrap: nowrap; }
       header .tagline { display: none; }
       .model-badge { display: none; }
       .sidebar-toggle { display: inline-flex; }
+
+      .brand { gap: var(--sp-2); min-width: 0; }
+      .brand h1 { font-size: 1.15rem; }
+      .brand .seal { width: 28px; height: 28px; }
+      .brand .seal svg { width: 13px; height: 13px; }
+
+      .user-badge { gap: var(--sp-2); padding-left: var(--sp-3); }
+      .user-badge .user-email { max-width: 32vw; }
 
       .layout { position: relative; overflow: hidden; }
 
@@ -951,6 +975,8 @@
     @media (max-width: 420px) {
       .send-btn span.send-label { display: none; }
       .send-btn { padding: 0 var(--sp-4); }
+      .user-badge .user-email { display: none; }
+      .user-badge { padding-left: var(--sp-2); gap: var(--sp-2); }
     }
   </style>
 </head>
