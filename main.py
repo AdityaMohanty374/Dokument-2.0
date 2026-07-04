@@ -139,6 +139,20 @@ def delete_conversation(
 # Chat
 # ──────────────────────────────────────────────────────────
 
+DEFAULT_TITLES = {"", "new conversation"}
+
+
+def _maybe_autotitle(convo: Conversation, candidate: str):
+    """Give the conversation a real title the first time we have content to
+    name it after, instead of leaving it as the generic placeholder."""
+    current = (convo.title or "").strip().lower()
+    if current in DEFAULT_TITLES:
+        candidate = candidate.strip().replace("\n", " ")
+        if len(candidate) > 60:
+            candidate = candidate[:57].rstrip() + "…"
+        convo.title = candidate or convo.title
+
+
 @app.post("/chat")
 def chat_endpoint(
     request: ChatRequest,
@@ -149,6 +163,7 @@ def chat_endpoint(
 
     # Save user message
     db.add(Message(conversation_id=convo.id, role="user", content=request.message))
+    _maybe_autotitle(convo, request.message)
     db.commit()
     db.refresh(convo)
 
@@ -210,6 +225,7 @@ async def upload_pdf(
             role=summary_message["role"],
             content=summary_message["content"],
         ))
+        _maybe_autotitle(convo, file.filename.rsplit(".", 1)[0])
         db.commit()
         db.refresh(convo)
 

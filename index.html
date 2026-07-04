@@ -1321,6 +1321,20 @@
       }
     }
 
+    // Re-fetch conversation metadata (titles, ordering) without touching the
+    // currently open thread — used after upload/chat so an auto-generated
+    // title (from the PDF name or first message) shows up in the sidebar.
+    async function refreshConversationTitles() {
+      try {
+        const res = await fetch(api('/conversations'), { headers: authHeaders() });
+        if (!res.ok) return;
+        conversations = await res.json();
+        renderConversationList();
+      } catch (err) {
+        // Non-critical — silently ignore, the title will catch up next load.
+      }
+    }
+
     function renderConversationList() {
       conversationListEl.innerHTML = '';
       conversations.forEach(c => {
@@ -1492,6 +1506,7 @@
             body.textContent += decoder.decode(value);
         }
         showToast('Document summarized');
+        refreshConversationTitles();
       } catch (err) {
         removeTyping();
         createError(err.message);
@@ -1529,6 +1544,7 @@
             if (done) break;
             body.textContent += decoder.decode(value);
         }
+        refreshConversationTitles();
       }catch (err) {
         removeTyping();
         createError(err.message);
